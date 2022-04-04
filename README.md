@@ -1,37 +1,77 @@
-# DeepLearning-for-Medical-Image-Processing 
+# DeepLung PyTorch1.0 Python3.7 with multi GPUs
 
-#### 介绍
-基于深度学习的医学图像处理。仓库主要包含肺部CT图像的预处理网络、肺结节良恶性分类网络以及肺结节检测网络。
+# Illustration
 
-#### 软件架构
-软件架构说明
+The project is based on wentaozhu's work to upgrade and modify the version, and add some additional visualization functions.The original version is applicable to python 2.7 and pytorch 0.1 from https://github.com/wentaozhu/DeepLung, and the Paper link is https://arxiv.org/pdf/1801.09555.pdf (DeepLung: Deep 3D Dual Path Nets for Automated Pulmonary Nodule Detection and Classification." IEEE WACV, 2018.), and  https://arxiv.org/pdf/1805.05373.pdf (Deepem: Deep 3d convnets with em for weakly supervised pulmonary nodule detection, MICCAI, 2018.) Please cite this paper if you find this project helpful for your research.膜拜大佬!!!
 
+# Dependencies
 
-#### 安装教程
+python 3.7, CUDA 10.1,SimpleITK 1.2.2, numpy 1.17, matplotlib 3.1.1, scikit-image (0.21), scipy (0.3.1), pyparsing (2.4.2), pytorch (1.0) (anaconda is recommended) other packages could be the latest version.
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+# Instructions for runing
 
-#### 使用说明
+# Training:
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+# 1.Install all dependencies
+# 2.Download dataset:
+Download luna data from https://luna16.grand-challenge.org/download/, and Download LIDC-IDRI dataset from https://wiki.cancerimagingarchive.net/display/Public/LIDC-IDRI.
 
-#### 参与贡献
+# 3.Proprocess data:
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+For preprocessing, run ./DeepLung-Minerva/prepare.py. The parameters for prepare.py is in config_training.py.
+*_data_path is the unzip raw data path for LUNA16.
+*_preprocess_result_path is the save path for the preprocessing.
+*_annos_path is the path for annotations.
+*_segment is the path for LUNA16 segmentation, which can be downloaded from LUNA16 website.
 
 
-#### 特技
+3.1 The function of preprocess_luna in 662 line proproces luna data, and generate mask.npy clean.npy labe.npy spacing.npy,extendbox.npy,origin.npy to subset folder of config['preprocess_result_path'].
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+# 4.Run detector：
+
+cd ./detector 
+For Training
+python main.py --model dpn3d26 -b 8  --save-dir dpn3d26/retrft96X/ --epochs 1000 --config config_trainingX
+You should modify X from 0-9 to train 10 models for 10 fold cross validation
+
+You can modify -b(batch_size) depend on your GPU memory and number.
+
+For Testing
+python main.py --model dpn3d26 -b 1 --resume results/dpn3d26/retrft96X/CkptFile/1000.ckpt --test 1 --save-dir dpn3d26/retrft96X/ --config config_trainingX
+You should modify X from 0-9 to test 10 models for 10 fold cross validation
+mkdir in results/res18/retrft96X/val/#(X=0-9)
+mv results/res18/retrft96X/bbox/*.npy results/res18/retrft96X/val/
+
+You can use the ResNet or dual path net model by revising --model attribute.
+After training and test are done, use the ./evaluationScript/frocwrtdetpepchluna16.py to validate the epoch used for test.
+After that, collect all the 10 folds' prediction, use ./evaluationScript/noduleCADEvaluationLUNA16.py to get the FROC for all 10 folds.
+You can directly run noduleCADEvaluationLUNA16.py, and get the performance in the paper.
+
+The trained model is in ./detector/dpnmodel/ or ./detector/resmodel/ The performances on each fold are (these results are in the supplement)
+
+<img src="./Visualize/Performance.png" width=50%>
+
+# 4.Run classifier：
+
+For nodule classification, first clean the data from LIDC-IDRI.
+Use the ./data/extclsshpinfo.py to extract nodule labels.
+humanperformance.py is used to get the performance of doctors.
+
+dimcls.py is used to get the classification based on diameter.
+nodclsgbt.py is used to get the performance based on GBM, nodule diameter and nodule pixel.
+pthumanperformance.py is used for patient-level diagnosis performance.
+kappatest.py is used for kappa value calculation in the paper.
+
+For classification using DPN, use the code in main_nodcls.py.
+You may revise the code a little bit for different test settings.
+
+For system's classification, that is classification based on detection.
+First, use the detection's test script in the run_training.sh to get the detected nodules for training CTs.
+Use the det2cls.py to train the model. And use the testdet2cls.py to test the trained model.
+You may revise the code a little bit for different test settings.
+
+Doctor's annotation for each nodule in LIDC-IDRI is in ./nodcls/annotationdetclssgm_doctor.csv
+
+LIDC-IDRI nodule size report downloaded from http://www.via.cornell.edu/lidc/list3.2.csv is in /nodcls/data/list3.2.csv
+
+
